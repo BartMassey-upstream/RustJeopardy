@@ -2,7 +2,6 @@ mod quiz;
 use quiz::*;
 
 use bevy::prelude::*;
-use bevy_prototype_lyon::prelude::*;
 
 struct TextObj;
 struct BoxObj;
@@ -85,7 +84,6 @@ fn main() {
         .insert_resource(quiz)
         .insert_resource(geometry)
         .add_plugins(DefaultPlugins)
-        .add_plugin(ShapePlugin)
         .add_startup_system(setup.system())
         .add_system(user_click.system())
         .run();
@@ -116,23 +114,6 @@ fn setup(
     // Cameras
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
-
-    // Drawing geometry
-    let rect_box = make_box(&size, &geometry.clues[0][0]);
-    let rect_width = 0.95 * (rect_box.right - rect_box.left);
-    let rect_height = 0.95 * (rect_box.bottom - rect_box.top);
-    let shape = shapes::Rectangle {
-        width: rect_width,
-        height: rect_height,
-        origin: shapes::RectangleOrigin::TopLeft,
-    };
-    let geometry_builder = GeometryBuilder::build_as(
-        &shape,
-        ShapeColors::outlined(Color::NONE, Color::NONE),
-        DrawMode::Fill(FillOptions::default()),
-        Transform::default(),
-    );
-    commands.spawn_bundle(geometry_builder);
 
     // Make the title
     gen_text(
