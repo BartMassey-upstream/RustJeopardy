@@ -20,8 +20,8 @@ struct Geometry {
 impl Default for Geometry {
     fn default() -> Self {
         let title = Rect {
-            top: 0.0,
-            bottom: 0.1,
+            top: 1.0,
+            bottom: 1.0 - 0.1,
             left: 0.0,
             right: 1.0,
         };
@@ -30,19 +30,19 @@ impl Default for Geometry {
         let ncategories = categories.len() as f32;
         for (i, c) in categories.iter_mut().enumerate() {
             *c = Rect {
-                top: 0.1,
-                bottom: 0.3,
+                top: 1.0 - 0.1,
+                bottom: 1.0 - 0.3,
                 left: i as f32 / ncategories,
                 right: (i + 1) as f32 / ncategories,
             };
         }
 
         let mut clues: [[Rect<f32>; 5]; 6] = Default::default();
-        for (i, r) in clues.iter_mut().enumerate() {
-            for (_, c) in r.iter_mut().enumerate() {
-                *c = Rect {
-                    top: 0.3 + i as f32 / (ncategories - 0.3),
-                    bottom: 0.3 + (i + 1) as f32 / (ncategories - 0.3),
+        for (i, col) in clues.iter_mut().enumerate() {
+            for (j, clue) in col.iter_mut().enumerate() {
+                *clue = Rect {
+                    top: 1.0 - 0.3 - 0.7 * j as f32 / ncategories,
+                    bottom: 1.0 - 0.3 - 0.7 * (j + 1) as f32 / ncategories,
                     left: i as f32 / ncategories,
                     right: (i + 1) as f32 / ncategories,
                 };
@@ -51,8 +51,8 @@ impl Default for Geometry {
 
         /*
         let cluebox = Rect {
-            top: 0.4,
-            bottom: 0.8,
+            top: 1.0 - 0.4,
+            bottom: 1.0 - 0.8,
             left: 0.2,
             right: 0.8,
         };
@@ -169,7 +169,7 @@ fn setup(
             let text = format!("${}", amounts[j]);
             let a: TextBundle = gen_text(
                 &text,
-                tbox.clone(),
+                tbox,
                 font.clone(),
                 50.,
                 Color::ORANGE,
@@ -200,13 +200,14 @@ fn gen_text(
     color: Color,
 ) -> TextBundle {
     let style = Style {
-        align_items: AlignItems::FlexEnd,
+        align_items: AlignItems::Center,
         align_self: AlignSelf::Center,
         align_content: AlignContent::Center,
+        flex_wrap: FlexWrap::Wrap,
         justify_content: JustifyContent::Center,
-        position_type: PositionType::Absolute,
         position,
-        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+        position_type: PositionType::Absolute,
+        size: Size::new(Val::Percent(90.0), Val::Percent(90.0)),
         ..Default::default()
     };
 
