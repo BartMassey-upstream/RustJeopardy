@@ -35,6 +35,11 @@ impl Quiz {
     }
 
     pub fn get_clue(&self, index: usize) -> &str {
-        &self.category[index / 7].clue[index % 6 - 1].text
+        let (i, j) = clue_coords(index);
+        &self.category[i].clue[j].text
     }
+}
+
+pub fn clue_coords(index: usize) -> (usize, usize) {
+    (index / 6, index % 6 - 1)
 }
