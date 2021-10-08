@@ -128,7 +128,7 @@ fn setup(
     };
     let geometry_builder = GeometryBuilder::build_as(
         &shape,
-        ShapeColors::outlined(Color::TEAL, Color::BLACK),
+        ShapeColors::outlined(Color::NONE, Color::NONE),
         DrawMode::Fill(FillOptions::default()),
         Transform::default(),
     );
@@ -143,6 +143,7 @@ fn setup(
         font.clone(),
         100.0,
         Color::YELLOW,
+        Color::NONE,
     );
 
     let amounts: Vec<i32> = vec![200, 400, 600, 800, 1000];
@@ -155,6 +156,7 @@ fn setup(
             font.clone(),
             50.,
             Color::WHITE,
+            Color::BLUE,
         );
 
         for (j, _) in col.clue.iter().enumerate() {
@@ -169,6 +171,7 @@ fn setup(
                 font.clone(),
                 50.,
                 Color::ORANGE,
+                Color::BLUE,
             );
 
 /*
@@ -195,7 +198,8 @@ fn gen_text(
     position: Rect<f32>,
     font: Handle<Font>,
     font_size: f32,
-    color: Color,
+    text_color: Color,
+    box_color: Color,
 ) {
     let style = Style {
         align_items: AlignItems::FlexEnd,
@@ -213,7 +217,7 @@ fn gen_text(
         ..Default::default()
     };
 
-    let material = materials.add(Color::GRAY.into());
+    let material = materials.add(box_color.into());
 
     let node_bundle = NodeBundle {
         style,
@@ -226,7 +230,7 @@ fn gen_text(
         TextStyle {
             font,
             font_size,
-            color,
+            color: text_color,
         },
         TextAlignment {
             horizontal: HorizontalAlign::Center,
@@ -343,6 +347,7 @@ fn user_click(
                         font.clone(),
                         50.,
                         Color::WHITE,
+                        Color::BLUE,
                     );
                     let mut text_iter: i32 = 0;
                     for (_, mut text_style, _) in text_query.iter_mut() {
