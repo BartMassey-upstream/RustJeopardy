@@ -6,6 +6,7 @@ authors = ["Benjamin Massey"]
 
 [dependencies]
 bevy = "0.5"
+bevy_prototype_lyon = "0.3.1"
 rand = "0.6"
 string-error = "0.1.0"
 yaserde = "0.7.1"

@@ -2,6 +2,7 @@ mod quiz;
 use quiz::*;
 
 use bevy::prelude::*;
+use bevy_prototype_lyon::prelude::*;
 
 struct TextObj;
 struct BoxObj;
@@ -9,112 +10,173 @@ struct ClueBox;
 struct ClueText;
 struct ReadingClue(bool);
 
+struct Geometry {
+    title: Rect<f32>,
+    categories: [Rect<f32>; 6],
+    clues: [[Rect<f32>; 5]; 6],
+    //cluebox: Rect<f32>,
+}
+
+impl Default for Geometry {
+    fn default() -> Self {
+        let title = Rect {
+            top: 0.0,
+            bottom: 0.1,
+            left: 0.0,
+            right: 1.0,
+        };
+
+        let mut categories: [Rect<f32>; 6] = Default::default();
+        let ncategories = categories.len() as f32;
+        for (i, c) in categories.iter_mut().enumerate() {
+            *c = Rect {
+                top: 0.1,
+                bottom: 0.3,
+                left: i as f32 / ncategories,
+                right: (i + 1) as f32 / ncategories,
+            };
+        }
+
+        let mut clues: [[Rect<f32>; 5]; 6] = Default::default();
+        for (i, r) in clues.iter_mut().enumerate() {
+            for (_, c) in r.iter_mut().enumerate() {
+                *c = Rect {
+                    top: 0.3 + i as f32 / (ncategories - 0.3),
+                    bottom: 0.3 + (i + 1) as f32 / (ncategories - 0.3),
+                    left: i as f32 / ncategories,
+                    right: (i + 1) as f32 / ncategories,
+                };
+            }
+        }
+
+        /*
+        let cluebox = Rect {
+            top: 0.4,
+            bottom: 0.8,
+            left: 0.2,
+            right: 0.8,
+        };
+        */
+
+        Self {
+            title,
+            categories,
+            clues,
+            //cluebox,
+        }
+    }
+}
+
 fn main() {
     let quiz = Quiz::new("assets/quiz.xml").unwrap();
+    let window_width = 1800.0f32;
+    let window_height = (window_width / 1.8).floor();
+    let geometry = Geometry::default();
     App::build()
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(WindowDescriptor {
             title: "Jeopardy".to_string(),
-            width: 1800.0,
-            height: 1012.0,
+            width: window_width,
+            height: window_height,
+            scale_factor_override: Some(1.0),
             ..Default::default()
         })
         .insert_resource(ReadingClue(false))
         .insert_resource(quiz)
+        .insert_resource(geometry)
         .add_plugins(DefaultPlugins)
+        .add_plugin(ShapePlugin)
         .add_startup_system(setup.system())
         .add_system(user_click.system())
         .run();
 }
 
+fn make_box(size: &Size<f32>, raw: &Rect<f32>) -> Rect<Val> {
+    Rect {
+        top: Val::Px(raw.top * size.height),
+        bottom: Val::Px(raw.bottom * size.height),
+        left: Val::Px(raw.left * size.width),
+        right: Val::Px(raw.right * size.width),
+    }
+}
+
+fn make_rect_box(size: &Size<f32>, raw: &Rect<f32>) -> Rect<f32> {
+    Rect {
+        top: raw.top * size.height,
+        bottom: raw.bottom * size.height,
+        left: raw.left * size.width,
+        right: raw.right * size.width,
+    }
+}
+
 fn setup(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     quiz: Res<Quiz>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    geometry: Res<Geometry>,
+    asset_server: Res<AssetServer>,
     mut windows: ResMut<Windows>,
 ) {
     // Window setup
     let window = windows.get_primary_mut().unwrap();
-    window.set_position(IVec2::new(0, 0));
+    let size = Size::new(window.width(), window.height());
+    let font = asset_server.load("korinan.ttf");
 
     // Cameras
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     commands.spawn_bundle(UiCameraBundle::default());
 
-    // Set up coordinate values
-    let mut x_values: Vec<f32> = vec![0., 0., 0., 0., 0., 0.];
-    let nx = x_values.len() as f32;
-    let n = nx - 0.35;
-    for (i, x) in x_values.iter_mut().enumerate() {
-        *x = (n - i as f32) * (window.width() / nx);
-    }
-
-    let mut y_values: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0.];
-    let ny = y_values.len() as f32;
-    let n = ny - 0.35;
-    for (i, y) in y_values.iter_mut().enumerate() {
-        *y = (n - i as f32) * (window.height() / ny);
-    }
+    // Drawing geometry
+    let rect_box = make_rect_box(&size, &geometry.clues[0][0]);
+    let rect_width = 0.95 * (rect_box.right - rect_box.left);
+    let rect_height = 0.95 * (rect_box.bottom - rect_box.top);
+    let shape = shapes::Rectangle {
+        width: rect_width,
+        height: rect_height,
+        origin: shapes::RectangleOrigin::TopLeft,
+    };
+    let geometry_builder = GeometryBuilder::build_as(
+        &shape,
+        ShapeColors::outlined(Color::TEAL, Color::BLACK),
+        DrawMode::Fill(FillOptions::default()),
+        Transform::default(),
+    );
+    commands.spawn_bundle(geometry_builder);
 
     // Make the title
     let title = gen_text(
         (&quiz.name).as_deref().unwrap_or("Quiz!"),
-        // arbitrary subtractions for positioning: BAD
-        Vec2::new((window.width() / 2.) - 350., y_values[0] - 60.),
-        asset_server.load("korinan.ttf"),
+        make_box(&size, &geometry.title),
+        font.clone(),
         100.0,
         Color::YELLOW,
     );
     commands.spawn_bundle(title).insert(TextObj);
 
-    for (index, category) in quiz.category.iter().enumerate() {
-        let mut x: f32 = x_values[index];
-        let y: f32 = y_values[1];
-        match index {
-            // arbitrary addition for positioning: BAD
-            0 | 2 => x += 20.,
-            1 => x += 10.,
-            _ => (),
-        }
+    let amounts: Vec<i32> = vec![200, 400, 600, 800, 1000];
+    for (i, col) in quiz.category.iter().enumerate() {
         let cat: TextBundle = gen_text(
-            &category.name,
-            // arbitrary subtractions for positioning: BAD
-            Vec2::new(x - 125., y - 50.),
-            asset_server.load("korinan.ttf"),
+            &col.name,
+            make_box(&size, &geometry.categories[i]),
+            font.clone(),
             50.,
             Color::WHITE,
         );
         commands.spawn_bundle(cat).insert(TextObj);
-    }
 
-    let amounts: Vec<i32> = vec![200, 400, 600, 800, 1000];
-    let mut y_index: usize = 2;
-    for amount in &amounts {
-        for &x in &x_values {
-            let y: f32 = y_values[y_index];
-            let text = format!("${}", amount);
+        for (j, _) in col.clue.iter().enumerate() {
+            let tbox = make_box(&size, &geometry.clues[i][j]);
+
+            let text = format!("${}", amounts[j]);
             let a: TextBundle = gen_text(
-                &text.to_string(),
-                // arbitrary subtractions for positioning: BAD
-                Vec2::new(x - 85., y - 20.),
-                asset_server.load("korinan.ttf"),
+                &text,
+                tbox.clone(),
+                font.clone(),
                 50.,
                 Color::ORANGE,
             );
             commands.spawn_bundle(a).insert(TextObj);
-        }
-        y_index += 1;
-    }
 
-    let blue_box: SpriteBundle = SpriteBundle {
-        material: materials.add((Color::BLUE).into()),
-        sprite: Sprite::new(Vec2::new(250., 125.)),
-        ..Default::default()
-    };
-
-    for &x in &x_values {
-        for &y in &y_values[1..] {
+/*
             let mut new_box: SpriteBundle = blue_box.clone();
             new_box.transform = Transform {
                 translation: Vec3::new(
@@ -125,37 +187,45 @@ fn setup(
                 ..Default::default()
             };
             commands.spawn_bundle(new_box).insert(BoxObj);
+*/
         }
     }
 }
 
-fn gen_text(s: &str, pos: Vec2, font: Handle<Font>, font_size: f32, color: Color) -> TextBundle {
-    TextBundle {
-        style: Style {
-            align_self: AlignSelf::Center,
-            align_content: AlignContent::Center,
-            justify_content: JustifyContent::Center,
-            position_type: PositionType::Absolute,
-            position: Rect {
-                bottom: Val::Px(pos.y),
-                right: Val::Px(pos.x),
-                ..Default::default()
-            },
-            ..Default::default()
-        },
+fn gen_text(
+    s: &str,
+    position: Rect<Val>,
+    font: Handle<Font>,
+    font_size: f32,
+    color: Color,
+) -> TextBundle {
+    let style = Style {
+        align_items: AlignItems::FlexEnd,
+        align_self: AlignSelf::Center,
+        align_content: AlignContent::Center,
+        justify_content: JustifyContent::Center,
+        position_type: PositionType::Absolute,
+        position,
+        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+        ..Default::default()
+    };
 
-        text: Text::with_section(
-            s,
-            TextStyle {
-                font,
-                font_size,
-                color,
-            },
-            TextAlignment {
-                horizontal: HorizontalAlign::Center,
-                vertical: VerticalAlign::Center,
-            },
-        ),
+    let text = Text::with_section(
+        s,
+        TextStyle {
+            font,
+            font_size,
+            color,
+        },
+        TextAlignment {
+            horizontal: HorizontalAlign::Center,
+            vertical: VerticalAlign::Center,
+        },
+    );
+
+    TextBundle {
+        style,
+        text,
         ..Default::default()
     }
 }
@@ -169,8 +239,9 @@ fn user_click(
     mut clue_box_query: Query<(Entity, With<ClueBox>)>,
     mut clue_text_query: Query<(Entity, With<ClueText>)>,
     windows: Res<Windows>,
-    asset_server: Res<AssetServer>,
     quiz: Res<Quiz>,
+    geometry: Res<Geometry>,
+    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut reading: ResMut<ReadingClue>,
 ) {
@@ -200,12 +271,9 @@ fn user_click(
             reading.0 = !reading.0;
         } else {
             let win = windows.get_primary().expect("No Window");
-            let mouse_pos_raw: Vec2 = win.cursor_position().expect("No Mouse Pos");
-            let mouse_pos: Vec2 = Vec2::new(
-                mouse_pos_raw.x - (win.width() / 2.),
-                mouse_pos_raw.y - (win.height() / 2.),
-            );
-            //println!("{}, {}", mouse_pos.x, mouse_pos.y);
+            let mouse_pos: Vec2 = win.cursor_position().expect("No Mouse Pos");
+            let size = Size::new(win.width(), win.height());
+            let font = asset_server.load("korinan.ttf");
             let mut i: i32 = 0;
             for (_, mut box_tf, box_sprite, _) in box_query.iter_mut() {
                 //println!("Box: {}", box_tf.translation);
@@ -245,13 +313,12 @@ fn user_click(
                     commands.spawn_bundle(clue_box).insert(ClueBox);
 
                     let clue_text: &str = quiz.get_clue(i as usize);
+                    let (ic, jc) = clue_coords(i as usize);
+                    let clue_box = make_box(&size, &geometry.clues[ic][jc]);
                     let clue: TextBundle = gen_text(
                         clue_text,
-                        Vec2::new(
-                            (win.width() / 2.) - 350.,
-                            ((win.height() / 2.) - 80.) - 125.,
-                        ), // arbitrary subtractions for positioning: BAD
-                        asset_server.load("korinan.ttf"),
+                        clue_box,
+                        font.clone(),
                         50.,
                         Color::WHITE,
                     );
