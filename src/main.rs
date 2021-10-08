@@ -91,16 +91,7 @@ fn main() {
         .run();
 }
 
-fn make_box(size: &Size<f32>, raw: &Rect<f32>) -> Rect<Val> {
-    Rect {
-        top: Val::Px(raw.top * size.height),
-        bottom: Val::Px(raw.bottom * size.height),
-        left: Val::Px(raw.left * size.width),
-        right: Val::Px(raw.right * size.width),
-    }
-}
-
-fn make_rect_box(size: &Size<f32>, raw: &Rect<f32>) -> Rect<f32> {
+fn make_box(size: &Size<f32>, raw: &Rect<f32>) -> Rect<f32> {
     Rect {
         top: raw.top * size.height,
         bottom: raw.bottom * size.height,
@@ -111,6 +102,7 @@ fn make_rect_box(size: &Size<f32>, raw: &Rect<f32>) -> Rect<f32> {
 
 fn setup(
     mut commands: Commands,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     quiz: Res<Quiz>,
     geometry: Res<Geometry>,
     asset_server: Res<AssetServer>,
@@ -126,7 +118,7 @@ fn setup(
     commands.spawn_bundle(UiCameraBundle::default());
 
     // Drawing geometry
-    let rect_box = make_rect_box(&size, &geometry.clues[0][0]);
+    let rect_box = make_box(&size, &geometry.clues[0][0]);
     let rect_width = 0.95 * (rect_box.right - rect_box.left);
     let rect_height = 0.95 * (rect_box.bottom - rect_box.top);
     let shape = shapes::Rectangle {
@@ -143,38 +135,41 @@ fn setup(
     commands.spawn_bundle(geometry_builder);
 
     // Make the title
-    let title = gen_text(
+    gen_text(
+        &mut commands,
+        &mut materials,
         (&quiz.name).as_deref().unwrap_or("Quiz!"),
         make_box(&size, &geometry.title),
         font.clone(),
         100.0,
         Color::YELLOW,
     );
-    commands.spawn_bundle(title).insert(TextObj);
 
     let amounts: Vec<i32> = vec![200, 400, 600, 800, 1000];
     for (i, col) in quiz.category.iter().enumerate() {
-        let cat: TextBundle = gen_text(
+        gen_text(
+            &mut commands,
+            &mut materials,
             &col.name,
             make_box(&size, &geometry.categories[i]),
             font.clone(),
             50.,
             Color::WHITE,
         );
-        commands.spawn_bundle(cat).insert(TextObj);
 
         for (j, _) in col.clue.iter().enumerate() {
             let tbox = make_box(&size, &geometry.clues[i][j]);
 
             let text = format!("${}", amounts[j]);
-            let a: TextBundle = gen_text(
+            gen_text(
+                &mut commands,
+                &mut materials,
                 &text,
                 tbox,
                 font.clone(),
                 50.,
                 Color::ORANGE,
             );
-            commands.spawn_bundle(a).insert(TextObj);
 
 /*
             let mut new_box: SpriteBundle = blue_box.clone();
@@ -192,22 +187,37 @@ fn setup(
     }
 }
 
+// https://www.reddit.com/r/bevy/comments/kowbxa/comment/ghvbp2j/
 fn gen_text(
+    command: &mut Commands,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
     s: &str,
-    position: Rect<Val>,
+    position: Rect<f32>,
     font: Handle<Font>,
     font_size: f32,
     color: Color,
-) -> TextBundle {
+) {
     let style = Style {
-        align_items: AlignItems::Center,
-        align_self: AlignSelf::Center,
-        align_content: AlignContent::Center,
-        flex_wrap: FlexWrap::Wrap,
+        align_items: AlignItems::FlexEnd,
         justify_content: JustifyContent::Center,
-        position,
+        position: Rect {
+            bottom: Val::Px(position.bottom),
+            left: Val::Px(position.left),
+            ..Default::default()
+        },
         position_type: PositionType::Absolute,
-        size: Size::new(Val::Percent(90.0), Val::Percent(90.0)),
+        size: Size::new(
+            Val::Px(position.right - position.left),
+            Val::Px(position.top - position.bottom),
+        ),
+        ..Default::default()
+    };
+
+    let material = materials.add(Color::GRAY.into());
+
+    let node_bundle = NodeBundle {
+        style,
+        material,
         ..Default::default()
     };
 
@@ -224,11 +234,20 @@ fn gen_text(
         },
     );
 
-    TextBundle {
-        style,
-        text,
+    let style = Style {
+        align_self: AlignSelf::Center,
         ..Default::default()
-    }
+    };
+
+    let text_bundle = TextBundle {
+        text,
+        style,
+        ..Default::default()
+    };
+
+    command.spawn_bundle(node_bundle).with_children(|parent| {
+        parent.spawn_bundle(text_bundle);
+    }).insert(TextObj);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -316,14 +335,15 @@ fn user_click(
                     let clue_text: &str = quiz.get_clue(i as usize);
                     let (ic, jc) = clue_coords(i as usize);
                     let clue_box = make_box(&size, &geometry.clues[ic][jc]);
-                    let clue: TextBundle = gen_text(
+                    gen_text(
+                        &mut commands,
+                        &mut materials,
                         clue_text,
                         clue_box,
                         font.clone(),
                         50.,
                         Color::WHITE,
                     );
-                    commands.spawn_bundle(clue).insert(ClueText);
                     let mut text_iter: i32 = 0;
                     for (_, mut text_style, _) in text_query.iter_mut() {
                         if text_iter < 7 {
