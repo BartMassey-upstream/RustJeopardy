@@ -190,7 +190,6 @@ fn gen_text(
 
     let style = Style {
         align_items: AlignItems::FlexEnd,
-        align_content: AlignContent::Center,
         justify_content: JustifyContent::Center,
         position: Rect {
             bottom: Val::Px(position.bottom + box_margin),
@@ -227,18 +226,23 @@ fn gen_text(
     );
 
     let style = Style {
-        align_self: AlignSelf::FlexEnd,
+        align_self: AlignSelf::Center,
+/*
+        align_items: AlignItems::Center,
         flex_wrap: FlexWrap::Wrap,
+        flex_direction: FlexDirection::Column,
+        justify_content: JustifyContent::Center,
         position: Rect {
-            bottom: Val::Px(2.0 * box_margin),
-            left: Val::Px(2.0 * box_margin),
+            bottom: Val::Percent(0.0),
+            left: Val::Percent(0.0),
             ..Default::default()
         },
-        position_type: PositionType::Relative,
+        position_type: PositionType::Absolute,
         size: Size::new(
-            Val::Px(position.right - position.left - 4.0 * box_margin),
-            Val::Px(position.top - position.bottom - 4.0 * box_margin),
+            Val::Percent(100.0),
+            Val::Percent(100.0),
         ),
+*/
         ..Default::default()
     };
 
@@ -248,9 +252,11 @@ fn gen_text(
         ..Default::default()
     };
 
-    command.spawn_bundle(node_bundle).with_children(|parent| {
-        parent.spawn_bundle(text_bundle);
-    }).insert(TextObj);
+    command
+        .spawn_bundle(node_bundle)
+        .with_children(|parent| {
+            parent.spawn_bundle(text_bundle);
+        }).insert(TextObj);
 }
 
 #[allow(clippy::too_many_arguments)]
