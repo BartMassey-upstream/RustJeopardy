@@ -20,7 +20,7 @@ impl Default for Geometry {
     fn default() -> Self {
         let title = Rect {
             top: 1.0,
-            bottom: 1.0 - 0.1,
+            bottom: 1.0 - 0.15,
             left: 0.0,
             right: 1.0,
         };
@@ -29,7 +29,7 @@ impl Default for Geometry {
         let ncategories = categories.len() as f32;
         for (i, c) in categories.iter_mut().enumerate() {
             *c = Rect {
-                top: 1.0 - 0.1,
+                top: 1.0 - 0.15,
                 bottom: 1.0 - 0.3,
                 left: i as f32 / ncategories,
                 right: (i + 1) as f32 / ncategories,
@@ -120,6 +120,7 @@ fn setup(
         &mut commands,
         &mut materials,
         (&quiz.name).as_deref().unwrap_or("Quiz!"),
+        &size,
         make_box(&size, &geometry.title),
         font.clone(),
         100.0,
@@ -133,6 +134,7 @@ fn setup(
             &mut commands,
             &mut materials,
             &col.name,
+            &size,
             make_box(&size, &geometry.categories[i]),
             font.clone(),
             50.,
@@ -148,6 +150,7 @@ fn setup(
                 &mut commands,
                 &mut materials,
                 &text,
+                &size,
                 tbox,
                 font.clone(),
                 50.,
@@ -176,24 +179,28 @@ fn gen_text(
     command: &mut Commands,
     materials: &mut ResMut<Assets<ColorMaterial>>,
     s: &str,
+    size: &Size<f32>,
     position: Rect<f32>,
     font: Handle<Font>,
     font_size: f32,
     text_color: Color,
     box_color: Color,
 ) {
+    let box_margin = 0.005 * f32::max(size.width, size.height);
+
     let style = Style {
         align_items: AlignItems::FlexEnd,
+        align_content: AlignContent::Center,
         justify_content: JustifyContent::Center,
         position: Rect {
-            bottom: Val::Px(position.bottom),
-            left: Val::Px(position.left),
+            bottom: Val::Px(position.bottom + box_margin),
+            left: Val::Px(position.left + box_margin),
             ..Default::default()
         },
         position_type: PositionType::Absolute,
         size: Size::new(
-            Val::Px(position.right - position.left),
-            Val::Px(position.top - position.bottom),
+            Val::Px(position.right - position.left - 2.0 * box_margin),
+            Val::Px(position.top - position.bottom - 2.0 * box_margin),
         ),
         ..Default::default()
     };
@@ -220,7 +227,18 @@ fn gen_text(
     );
 
     let style = Style {
-        align_self: AlignSelf::Center,
+        align_self: AlignSelf::FlexEnd,
+        flex_wrap: FlexWrap::Wrap,
+        position: Rect {
+            bottom: Val::Px(2.0 * box_margin),
+            left: Val::Px(2.0 * box_margin),
+            ..Default::default()
+        },
+        position_type: PositionType::Relative,
+        size: Size::new(
+            Val::Px(position.right - position.left - 4.0 * box_margin),
+            Val::Px(position.top - position.bottom - 4.0 * box_margin),
+        ),
         ..Default::default()
     };
 
@@ -324,6 +342,7 @@ fn user_click(
                         &mut commands,
                         &mut materials,
                         clue_text,
+                        &size,
                         clue_box,
                         font.clone(),
                         50.,
